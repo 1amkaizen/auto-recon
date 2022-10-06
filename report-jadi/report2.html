@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="../css/bootstrap.min.css" />
+    <link rel="stylesheet" href="../css/dataTables.bootstrap5.min.css" />
+    <link rel="stylesheet" href="../css/datatables.css" />
+    <link rel="stylesheet" href="../css/datatables.min.css" />
+    <link rel="stylesheet" href="../css/responsive.bootstrap4.min.css" />
+    <link rel="stylesheet" href="../css/buttons.bootstrap4.min.css" />
+    <title>report</title>
+  </head>
+
+  <body class="bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+      <div class="container-fluid">
+        <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="offcanvasExample">
+          <span class="navbar-toggler-icon" data-bs-target="#sidebar"></span>
+        </button>
+        <a class="navbar-brand me-auto ms-lg-0 ms-3 text-uppercase fw-bold" href="#">
+          <img src="../img/logo.png" alt="" width="30" height="24" class="d-inline-block align-text-top" />
+          1amkaiz3n
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNavBar" aria-controls="topNavBar" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="container-fluid mt-5 pt-5">
+      <div class="row">
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header bg-primary text-white text-center text-uppercase">
+              <h3 class="card-title">Total Scanned  Subdomain</h3>
+            </div>
+            <!-- /.card-header -->
+            <div class="card-body bg-dark text-white">
+              <table id="example1" class="table table-bordered table-striped text-white">
+                <thead class="text-white text-center">
+                  <tr class="text-center fw-bold text-uppercase">
+                    <th class="text-center">Subdomains</th>
+                    <th class="text-center">Urls</th>
+                  </tr>
+                </thead>
+                <tbody class="text-white">
+                  <tr class="text-white">
+                    <td>Trident</td>
+                    <td>Gecko</td>
+                  </tr>
+                  <tr class="text-white">
+                    <td>Gecko</td>
+                    <td>Firefox 1.0</td>
+                  </tr>
+                  <tr class="text-white">
+                    <td>Trident</td>
+                    <td>4</td>
+                  </tr>
+                  <tr class="text-white">
+                    <td>Trident</td>
+                    <td>Gecko</td>
+                  </tr>
+                  <tr class="text-white">
+                    <td>Gecko</td>
+                    <td>Firefox 1.0</td>
+                  </tr>
+                  <tr class="text-white">
+                    <td>Trident</td>
+                    <td>Gecko</td>
+                  </tr>
+                  <tr class="text-white">
+                    <td>Trident</td>
+                    <td>Gecko</td>
+                  </tr>
+                  <tr class="text-white">
+                    <td>Trident</td>
+                    <td>Gecko</td>
+                  </tr>
+                  <tr class="text-white">
+                    <td>Trident</td>
+                    <td>Gecko</td>
+                  </tr>
+                  <tr class="text-white">
+                    <td>Trident</td>
+                    <td>Gecko</td>
+                  </tr>
+                  <tr class="text-white">
+                    <td>Trident</td>
+                    <td>Gecko</td>
+                  </tr>
+                  <tr class="text-white">
+                    <td>Trident</td>
+                    <td>Gecko</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <!-- /.card-body -->
+          </div>
+        </div>
+        <div class="col-md-6">
+			<div class="card bg-dark text-white">
+			<div class="card-header bg-primary text-white text-center text-uppercase"><h3 class="card-title">Total Scanned Domain & subdomain</h3></div>
+			<div class="card-body">
+				ini body
+		</div>
+		</div>
+      </div>
+    </div>
+	</div>
+    <!-- jQuery -->
+    <script src="../js/script.js"></script>
+    <script src="../js/jquery.dataTables.js"></script>
+    <script src="../js/jquery-3.5.1.js"></script>
+    <script src="../js/datatables.js"></script>
+    <script src="../js/jquery.min.js"></script>
+    <!-- Bootstrap 4 -->
+    <script src="../js/bootstrap.bundle.min.js"></script>
+    <!-- DataTables  & Plugins -->
+    <script src="../js/jquery.dataTables.min.js"></script>
+    <script src="../js/dataTables.bootstrap4.min.js"></script>
+    <script src="../js/dataTables.responsive.min.js"></script>
+    <script src="../js/responsive.bootstrap4.min.js"></script>
+    <script src="../js/dataTables.buttons.min.js"></script>
+    <script src="../js/buttons.bootstrap4.min.js"></script>
+    <script src="../js/jszip.min.js"></script>
+    <script src="../js/pdfmake.min.js"></script>
+    <script src="../js/vfs_fonts.js"></script>
+    <script src="../js/buttons.html5.min.js"></script>
+    <script src="../js/buttons.print.min.js"></script>
+    <script src="../js/buttons.colVis.min.js"></script>
+    <!-- Page specific script -->
+    <script>
+      $(function () {
+        $("#example1")
+          .DataTable({
+            buttons: ["copy", "csv", "pdf", "colvis"],
+			paging: true,
+            responsive: true,
+            lengthChange: true,
+            autoWidth: true,
+			ordering: true,
+          	info: true,
+
+          })
+          .buttons()
+          .container()
+          .appendTo("#example1_wrapper .col-md-6:eq(0)");
+        $("#example2").DataTable({
+          paging: true,
+          lengthChange: true,
+          searching: true,
+          ordering: true,
+          info: true,
+          autoWidth: true,
+          responsive: true,
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,296 @@
+#!/bin/bash
+# COLOR
+COFF='\033[0m' # Text Reset
+# Bold
+BBlack='\033[1;30m'  # Black
+BRed='\033[1;31m'    # Red
+BGreen='\033[1;32m'  # Green
+BYellow='\033[1;33m' # Yellow
+BBlue='\033[1;34m'   # Blue
+BPurple='\033[1;35m' # Purple
+BCyan='\033[1;36m'   # Cyan
+BWhite='\033[1;37m'  # White
+
+########################################
+dirsearchWordlist=/usr/share/wordlists/dirsearch/db/dicc.txt
+massdnsWordlist=/usr/share/wordlists/seclists/Discovery/DNS/dns-Jhaddix.txt
+subdomainThreads=10
+dirsearchThreads=50
+#######################################
+
+reset=$(tput sgr0)
+domain=
+subreport=
+usage() {
+  echo -e "${BYellow}Usage: kaizen -d domain.com " 1>&2
+  exit 1
+}
+
+while getopts ":d:e:r:" o; do
+  case "${o}" in
+  d)
+    domain=${OPTARG}
+    ;;
+
+  *)
+    usage
+    ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+if [ -z "${domain}" ] && [[ -z ${subreport[@]} ]]; then
+  usage
+  exit 1
+fi
+subenum() {
+  curl -s "https://api.certspotter.com/v1/issuances?domain=${domain}&include_subdomains=true&expand=dns_names&expand=cert" | jq ".[].dns_names[]" | sed 's/\"//g' | sed 's/\*\.//g' | sort -u | grep $domain | anew -q ./$domain/domains
+  assetfinder --subs-only $domain | anew -q ./$domain/domains
+  subfinder -d $domain -silent | anew -q ./$domain/domains
+  censys subdomains $domain | sed 's/\-//g' | awk '{print $1}' | sort -u | anew -q ./$domain/domains
+}
+
+takeover(){
+~/tools/massdns/scripts/ct.py $domain 2>/dev/null >./$domain/temp.txt
+[ -s ./$domain/temp.txt ] && cat ./$domain/temp.txt | ~/tools/massdns/bin/massdns -r ~/tools/massdns/lists/resolvers.txt -t A -q -o S | anew ./$domain/temp.tx
+cat ./$domain/domains | ~/tools/massdns/bin/massdns -r ~/tools/massdns/lists/resolvers.txt -t A -q -o S | anew ./$domain/temp.txt
+
+cat ./$domain/temp.txt | awk '{print $3}' | sort -u | while read line; do
+wildcard=$(cat ./$domain/temp.txt | grep -m 1 $line)
+echo "$wildcard" >> ./$domain/cleantemp.txt
+done
+
+cat ./$domain/cleantemp.txt | grep CNAME >> ./$domain/cnames.txt
+cat ./$domain/cnames.txt | sort -u | while read line; do
+hostrec=$(echo "$line" | awk '{print $1}')
+if [[ $(host $hostrec | grep NXDOMAIN) != "" ]]
+then
+echo "${red}Check the following domain for NS takeover:  $line ${reset}"
+echo "$line" >> ./$domain/pos.txt
+else
+echo -ne "working on it...\r"
+fi
+done
+sleep 1
+cat ./$domain/domains > ./$domain/alldomains.txt
+cat ./$domain/cleantemp.txt | awk  '{print $1}' | while read line; do
+x="$line"
+echo "${x%?}" >> ./$domain/alldomains.txt
+done
+sleep 1
+}
+
+hostalive() {
+  cat ./$domain/domains | sort -u | httprobe -c 50 | anew -q ./$domain/hosts
+  cat ./$domain/hosts | sed 's/\http\:\/\///g' | sed 's/\https\:\/\///g' | sort -u | while read line; do
+    probeurl=$(cat ./$domain/hosts | sort -u | grep -m 1 $line)
+    echo "$probeurl" | anew -q ./$domain/hosts
+  done
+echo "$(cat ./$domain/hosts | sort -u)" | anew -q ./$domain/hosts
+cat ./$domain/hosts | fff -d 1 -S -o roots | meg -d 10 -c 200 / ./$domain/hosts ./roots
+}
+
+waybackrecon() {
+  cat ./$domain/hosts | waybackurls >./$domain/wayback-data/waybackurls.txt
+  cat ./$domain/wayback-data/waybackurls.txt | sort -u | unfurl --unique keys >./$domain/wayback-data/paramlist.txt
+  [ -s ./$domain/wayback-data/paramlist.txt ] && echo "Wordlist saved to /$domain/wayback-data/paramlist.txt Total : $(wc -l ./$domain/wayback-data/paramlist.txt | awk '{print $1}')"
+  cat ./$domain/wayback-data/waybackurls.txt | sort -u | grep -P "\w+\.js(\?|$)" | sort -u >./$domain/wayback-data/jsurls.txt
+  [ -s ./$domain/wayback-data/jsurls.txt ] && echo "JS Urls saved to /$domain/wayback-data/jsurls.txt Total : $(wc -l ./$domain/hosts | awk '{print $1}')"
+  cat ./$domain/wayback-data/waybackurls.txt | sort -u | grep -P "\w+\.php(\?|$) | sort -u " >./$domain/wayback-data/phpurls.txt
+  [ -s ./$domain/wayback-data/phpurls.txt ] && echo "PHP Urls saved to /$domain/wayback-data/phpurls.txt Total : $(wc -l ./$domain/wayback-data/phpurls.txt | awk '{print $1}')"
+  cat ./$domain/wayback-data/waybackurls.txt | sort -u | grep -P "\w+\.aspx(\?|$) | sort -u " >./$domain/wayback-data/aspxurls.txt
+  [ -s ./$domain/wayback-data/aspxurls.txt ] && echo "ASP Urls saved to /$domain/wayback-data/aspxurls.txt Total : $(wc -l ./$domain/wayback-data/aspxurls.txt | awk '{print $1}')"
+  cat ./$domain/wayback-data/waybackurls.txt | sort -u | grep -P "\w+\.jsp(\?|$) | sort -u " >./$domain/wayback-data/jspurls.txt
+  [ -s ./$domain/wayback-data/jspurls.txt ] && echo "JSP Urls saved to /$domain/wayback-data/jspurls.txt Total : $(wc -l ./$domain/wayback-data/jspurls.txt | awk '{print $1}')"
+}
+
+recon() {
+  echo -e "${BRed}Subdomain Enumerations on $domain... ${reset}"
+  subenum $domain
+  echo -e "${BRed}Hostalive discovery... ${reset}"
+  hostalive $domain
+  echo -e "${BRed}Scraping wayback for data... ${reset}"
+  waybackrecon $domain
+  echo -e "${BRed}Chec the domain for take over... ${reset}"
+  takeover $domain
+}
+
+output() {
+  #subdomain enumerations
+  echo -e "${BGreen} Subdomain Enumerations Success${reset}"
+  echo -e "${BWhite}Total of $(wc -l ./$domain/alldomains.txt | awk '{print $1}')  subdomains were found${reset}"
+  echo -e "${BWhite} Output ==> ${BYellow}domains ${reset}"
+  #hostalive
+  echo -e "${BGreen}Hostalive discovery success${reset}"
+  echo -e "${BWhite}Total of $(wc -l ./$domain/hosts | awk '{print $1}') live subdomains were found${reset}"
+  echo -e "${BWhite} Output ==> ${BYellow}hosts ${reset}"
+  #waybackrecon
+  echo -e "${BGreen}Waybackrecon Success${reset}"
+  echo -e "${BWhite} Output ==> ${BYellow}wayback-data/waybackurls.txt ${reset}"
+  echo -e "${BWhite} Output ==> ${BYellow}wayback-data/paramlist.txt ${reset}"
+  echo -e "${BWhite} Output ==> ${BYellow}wayback-data/jsurls.txt ${reset}"
+  echo -e "${BWhite} Output ==> ${BYellow}wayback-data/phpurls.txt ${reset}"
+  echo -e "${BWhite} Output ==> ${BYellow}wayback-data/aspxurls.txt ${reset}"
+  echo -e "${BWhite} Output ==> ${BYellow}wayback-data/jspurls.txt ${reset}"
+}
+
+report()
+{
+# Head
+echo '<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge">' >> ./$domain/report.html
+echo "<title>Recon Report for $domain</title>" >> ./$domain/report.html
+echo '<link rel="stylesheet" href="../css/bootstrap.min.css" /><link rel="stylesheet" href="../css/dataTables.bootstrap5.min.css" /><link rel="stylesheet" href="../css/datatables.css" /><link rel="stylesheet" href="../css/datatables.min.css" /><link rel="stylesheet" href="../css/responsive.bootstrap4.min.css" /><link rel="stylesheet" href="../css/buttons.bootstrap4.min.css" />'>> ./$domain/report.html
+# script
+echo '<script src="../js/script.js"></script><script src="../js/jquery.dataTables.js"></script><script src="../js/jquery-3.5.1.js"></script><script src="../js/datatables.js"></script><script src="../js/jquery.min.js"></script><script src="../js/bootstrap.bundle.min.js"></script><script src="../js/jquery.dataTables.min.js"></script><script src="../js/dataTables.bootstrap4.min.js"></script><script src="../js/dataTables.responsive.min.js"></script><script src="../js/responsive.bootstrap4.min.js"></script><script src="../js/dataTables.buttons.min.js"></script><script src="../js/buttons.bootstrap4.min.js"></script><script src="../js/jszip.min.js"></script><script src="../js/pdfmake.min.js"></script><script src="../js/vfs_fonts.js"></script><script src="../js/buttons.html5.min.js"></script><script src="../js/buttons.print.min.js"></script><script src="../js/buttons.colVis.min.js"></script>' >> ./$domain/report.html
+echo '<style>a {text-decoration:none;}</style>' >> ./$domain/report.html
+echo '<script>$(document).ready(function () {
+        $("#example1")
+          .DataTable({
+            buttons: ["copy", "csv", "pdf", "colvis"],
+            paging: true,
+            responsive: true,
+            lengthChange: true,
+            autoWidth: true,
+            ordering: true,
+            info: true,
+
+          })
+          .buttons()
+          .container()
+          .appendTo("#example1_wrapper .col-md-6:eq(0)");
+      });
+    </script></head>' >> ./$domain/report.html
+# end script
+# End Head
+# Body
+echo '<body class="bg-dark">' >> ./$domain/report.html
+# Navbar
+echo '<nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top"><div class="container-fluid"><button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="offcanvasExample"><span class="navbar-toggler-icon" data-bs-target="#sidebar"></span></button><a class="navbar-brand me-auto ms-lg-0 ms-3 text-uppercase fw-bold" href="#"><img src="../img/logo.png" alt="" width="30" height="24" class="d-inline-block align-text-top" />1amkaiz3n</a><button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNavBar" aria-controls="topNavBar" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button></div></nav>' >> ./$domain/report.html
+# End Navbar
+# Container Fluid & row
+echo '<div class="container-fluid mt-5 pt-5"><div class="row">' >> ./$domain/report.html
+# Title
+echo "<h1 class=\"post-title text-center text-white text-uppercase fw-bold my-5\" itemprop=\"name headline\">Recon Report for <a href=\"http://$domain\">$domain</a></h1>" >> ./$domain/report.html
+# col & card
+echo '<div class="col-md-6"><div class="card">' >> ./$domain/report.html
+# card header
+echo '<div class="card-header bg-primary text-white text-center text-uppercase"><h3 class="card-title fw-bold">Total Scanned  Subdomain</h3></div>' >> ./$domain/report.html
+# card body
+echo '<div class="card-body bg-dark text-white">' >> ./$domain/report.html
+# table
+echo '<table id="example1" class="table table-bordered table-striped text-white">' >> ./$domain/report.html
+# thead
+echo '<thead class="text-white text-center"><tr class="text-center fw-bold text-uppercase"><th class="text-center">Subdomains</th><th class="text-center">Header</th></tr></thead>' >> ./$domain/report.html
+# tbody
+echo '<tbody class="text-white">' >> ./$domain/report.html
+### isi col tabel
+cat ./$domain/alldomains.txt |  sed 's/\http\:\/\///g' |  sed 's/\https\:\/\///g'  | while read nline; do
+list=$(ls ./$domain/roots/$nline/ | grep headers )
+echo "<tr class='text-white'><td><a href='$nline'>$nline</a></td><td><a href='roots/$nline/$list'>$list</a></td> </tr>" >> ./$domain/report.html ; done
+### end isi col tabel
+echo '</tbody>' >> ./$domain/report.html
+# end tbody
+echo '</table>' >> ./$domain/report.html
+# end table
+echo '</div>' >> ./$domain/report.html
+# end card body
+echo '</div></div>' >> ./$domain/report.html
+# end col & card
+
+###### col & card 2
+echo '<div class="col-md-6"><div class="card">' >> ./$domain/report.html
+##### card-header 2
+echo '<div class="card-header bg-primary text-white text-center text-uppercase"><h3 class="card-title fw-bold">Network Info</h3></div>' >> ./$domain/report.html
+###  isi col
+## row on col
+echo '<div class="row bg-dark text-white">' >> ./$domain/report.html
+## col on row col 1
+echo '<div class="col-5 col-sm-3">' >> ./$domain/report.html
+## nav tab 
+echo '<div class="nav flex-column nav-tabs h-100 fw-bold text-center text-uppercase" id="vert-tabs-tab" role="tablist" aria-orientation="vertical"><a class="nav-link" id="vert-tabs-home-tab" data-toggle="pill" href="#vert-tabs-home" role="tab" aria-controls="vert-tabs-home" aria-selected="false">Dig</a><a class="nav-link" id="vert-tabs-profil-tab" data-toggle="pill" href="#vert-tabs-profile" role="tab" aria-controls="vert-tabs-profile"aria-selected="false">Nslookup</a><a class="nav-link" id="vet-tabs-messages-tab" data-toggle="pill" href="#vert-tabs-messages" role="tab" aria-controls="vert-tabs-messages" aria-selected="false">Whois</a><a class="nav-link active" id="vert-tabs-settings-tab" data-toggle="pill" href="#vert-tabs-settings" role="tab" aria-controls="vert-tabs-settings" aria-selected="rue">Host</a></div>' >> ./$domain/report.html
+echo '</div>' >> ./$domain/report.html
+## end col on row col 1
+## end nav tab
+## col on row col 2 /kontent
+echo '<div class="col-7 col-sm-9">' >> ./$domain/report.html
+## tab content
+echo '<div class="tab-content" id="vert-tabs-tabContent">' >> ./$domain/report.html
+## tab 1
+echo '<div class="tab-pane text-left fade" id="vert-tabs-home" role="tabpanel" aria-labelledby="vert-tabs-home-tab">' >> ./$domain/report.html
+echo "
+<pre>
+$(dig $domain)
+</pre>" >> ./$domain/report.html
+## enda tab 1
+## tab 2
+echo '</div><div class="tab-pane fade" id="vert-tabs-profile" role="tabpanel" aria-labelledby="vert-tabs-profile-tab">'>> ./$domain/report.html
+echo "
+<pre>
+$(nslookup $domain)
+</pre>" >> ./$domain/report.html
+## end tab 2
+## tab 3
+echo '</div><div class="tab-pane fade" id="vert-tabs-messages" role="tabpanel" aria-labelledby="vert-tabs-messages-tab">' >> ./$domain/report.html
+echo "
+<pre>
+$(whois $domain)
+</pre>" >> ./$domain/report.html
+## end tab 3
+## tab 4
+echo '</div><div class="tab-pane fade active show" id="vert-tabs-settings" role="tabpanel" aria-labelledby="vert-tabs-settings-tab">' >> ./$domain/report.html
+echo "
+<pre>
+$(host $domain)
+</pre>" >> ./$domain/report.html
+echo '</div>' >> ./$domain/report.html
+## end tab 4
+echo '</div>' >> ./$domain/report.html
+## end tab content
+echo '</div>' >> ./$domain/report.html
+## end col on row col 2 /kontent
+echo '</div>' >> ./$domain/report.html
+## end row on col
+### end isi col
+echo '</div></div>' >> ./$domain/report.html
+##### end col & card 2
+echo '</div></div>' >> ./$domain/report.html
+# end cintainer fluid & row
+echo "</body></html>" >> ./$domain/report.html
+# end body
+}
+
+
+
+main() {
+  if [ -z "${domain}" ]; then
+    domain=${subreport[1]}
+    foldername=${subreport[2]}
+    subd=${subreport[3]}
+    report $domain $subdomain $foldername $subd
+    exit 1
+  fi
+  if [ -d "./$domain" ]; then
+    echo -e "${BRed}This is a known target.${reset}"
+  else
+    mkdir ./$domain
+  fi
+	mkdir ./$domain
+	touch ./$domain/report.html
+	cp -r ~/report/css ~/report/$domain
+	cp -r ~/report/img ~/report/$domain
+    mkdir ./$domain/wayback-data/
+    touch ./$domain/report.html
+	touch ./$domain/cleantemp.txt
+	touch ./$domain/pos.txt
+	touch ./$domain/temp.txt
+  recon $domain
+  echo -e "${BGreen}Scan for $domain finished successfully${reset}"
+  output
+  echo -e "${BGreen}Create Report${reset}"
+  report $domain
+  echo -e "${BGreen}Report success ==> file:///home/kali/report/$domain/report.html#${reset}"
+  duration=$SECONDS
+  echo -e "${BGreen}Scan completed in : $(($duration / 60)) minutes and $(($duration % 60)) seconds."
+}
+todate=$(date +"%Y-%m-%d")
+main $domain
