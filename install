@@ -1,0 +1,87 @@
+#!/bin/bash
+# COLOR
+COff='\033[0m'       # Text Reset
+# Bold
+BBlack='\033[1;30m'       # Black
+BRed='\033[1;31m'         # Red
+BGreen='\033[1;32m'       # Green
+BYellow='\033[1;33m'      # Yellow
+BBlue='\033[1;34m'        # Blue
+BPurple='\033[1;35m'      # Purple
+BCyan='\033[1;36m'        # Cyan
+BWhite='\033[1;37m'       # White
+
+#gf
+go install -v github.com/tomnomnom/gf@latest
+echo -e "${BRed}Installing gf"
+#gf Patterns
+git clone https://github.com/cryonayes/GF-Patterns
+mkdir ~/.gf
+cp GF-Patterns/*.json ~/.gf
+#html-tool
+echo -e "${BRed}installing html-tool"
+go install -v github.com/tomnomnom/hacks/html-tool@latest
+#httprobe
+echo -e "${BRed}installing httprobe"
+go install -v github.com/tomnomnom/httprobe@latest
+#waybackurl
+echo -e "${BRed}instaling waybackurls"
+go install -v github.com/tomnomnom/waybackurls@latest
+#anew
+echo -e "${BRed}installong anew"
+go install -v github.com/tomnomnom/anew@latest
+#fff
+echo -e "${BRed}installing fff"
+go install -v  github.com/tomnomnom/fff@latest
+#meg
+echo -e "${BRed}installing meg"
+go install -v  github.com/tomnomnom/meg@latest
+#comb
+echo -e "${BRed}installing comb"
+go install -v  github.com/tomnomnom/comb@latest
+#subfinder
+echo -e "${BRed}installing subfinder"
+go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+#httpx
+echo -e "${BRed}installing httpx"
+go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
+#dnsx
+echo -e "${BRed}installing dnsx"
+go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest
+#urinteristing
+echo -e "${BRed}installing urinteristong"
+go install -v  github.com/tomnomnom/hacks/urinteresting@latest
+#inscope
+echo -e "${BRed}installing inscope"
+go install -v  github.com/tomnomnom/hacks/inscope@latest
+#go vim
+echo -e ${BRed}"installing go vim"
+go install -v golang.org/x/tools/gopls@latest
+#certspotter
+echo -e "${BRed}Installing certspotter"
+go install -v software.sslmate.com/src/certspotter/cmd/certspotter@latest
+#jq
+echo -e "${BRed}Installing jq"
+sudo apt install jq
+#tok
+echo -e "${BRed}Installing tok"
+go install -v github.com/tomnomnom/hacks/tok@latest
+#gau
+echo -e "${BRed}Installing gau"
+go install github.com/lc/gau/v2/cmd/gau@latest
+
+
+
+#hakrawler
+echo -e "${BRed}Installing hakrawler"
+sudo apt install hakrawler
+
+
+
+echo -e "${BRed}installing successfuly"
+
+
+
+
+
+
